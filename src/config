@@ -1,0 +1,20 @@
+
+[clickhouse]
+host = 192.168.40.223
+port = 9001
+user = default
+password = 111111
+
+
+[openlookeng]
+host = 192.168.40.223
+port = 18080
+user = olk
+catalog = clickhouse223
+schema = tsg_galaxy_v3
+
+
+[run]
+time1 = 2021-05-30 12:00:00
+time2 = 2021-06-30 12:00:00
+time_out = 1200

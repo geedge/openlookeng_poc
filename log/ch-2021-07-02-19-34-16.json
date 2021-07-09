@@ -1,1 +1,0 @@
-{"Q1": {"sql": "SELECT count(1) from connection_record_log WHERE common_recv_time >= toUnixTimestamp('2021-05-30 12:00:00') AND common_recv_time < toUnixTimestamp('2021-06-30 12:00:00')", "used_time": 0.023772716522216797, "data_num": 0, "info": ""}}

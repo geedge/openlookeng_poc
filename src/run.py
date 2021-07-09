@@ -46,7 +46,7 @@ def run_ch(test_sql,now_time = '2021'):
             result['data_num'] = -1
             result['info'] = str(e)
             fail_num += 1
-            print("running Q{} success , {}√，{}×".format(k,suc_num,fail_num))
+            print("running Q{} failed , {}√，{}×".format(k,suc_num,fail_num))
 
         results[k] = result
         try:
@@ -55,8 +55,9 @@ def run_ch(test_sql,now_time = '2021'):
         except Exception as e:
             print("error",e)
         try:
-            with open("../log/ch-result.log","a+") as file:
-                file.write("{} success num: {}  failed num: {} \n".format(now_time,suc_num,fail_num))
+            file = open("../log/ch-result.log","a+")
+            file.write("{} success num: {}  failed num: {} \n".format(now_time,suc_num,fail_num))
+            file.close()
         except Exception as e:
             print(e)
         time.sleep(10)
@@ -65,7 +66,7 @@ def run_ch(test_sql,now_time = '2021'):
 
 def run_olk(test_sql,now_time = '2021'):
     client = openlookeng_driver.Client(host=olconfig['host'],port=int(olconfig['port']),user=olconfig['user'],catalog=olconfig['catalog'],schema=olconfig['schema'])
-    client.add_logging(log_level=logging.DEBUG)
+    #client.add_logging(log_level=logging.DEBUG)
     results = {}
     total_time = 0
     suc_num,fail_num = 0,0
@@ -73,23 +74,26 @@ def run_olk(test_sql,now_time = '2021'):
         result = {}
         run_sql = change_sql(v)
         result['sql'] = run_sql
-        web_result = client.web_execute(run_sql)
-        used_time = float(web_result.get_used_time(sql_timeout))  # second
-        total_time += used_time
-        result['used_time'] = used_time
-        result['data_num'] = 0
-        result['info'] = web_result.error_info
-        if web_result.error_info == '':
+        try:
+            web_result = client.web_execute(run_sql)
+            used_time = float(web_result.get_used_time(sql_timeout))  # second
+            web_result.download_csv("../log/"+str(k)+".csv")
+            total_time += used_time
+            result['used_time'] = used_time
+            result['data_num'] = 0
             suc_num += 1
             print("running Q{} success , {}√，{}×".format(k,suc_num,fail_num))
-
-        else:
+        except Exception as e:
+            result['used_time'] = -1
+            result['data_num'] = 0
+            result['info'] = str(e)
             fail_num += 1
-            print("running Q{} success , {}√，{}×".format(k,suc_num,fail_num))
+            print("running Q{} failed , {}√，{}×".format(k,suc_num,fail_num))
         results[k] = result
         try:
-            with open("../log/ol-" + now_time + ".json",'w') as file:
-                file.write(json.dumps(results))
+            file = open("../log/ol-" + now_time + ".json",'w')
+            file.write(json.dumps(results))
+            file.close()
         except Exception as e:
             print("error",e)
         try:

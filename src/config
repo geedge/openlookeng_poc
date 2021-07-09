@@ -1,16 +1,30 @@
 
-[clickhouse]
+[clickhouse-local]
 host = 192.168.40.223
 port = 9001
 user = default
 password = 111111
 
-
-[openlookeng]
-host = 192.168.40.223
+[openlookeng-local]
+host = 192.168.40.152
 port = 18080
 user = olk
 catalog = clickhouse223
+schema = tsg_galaxy_v3
+
+
+[clickhouse]
+host = 10.111.200.170
+port = 9001
+user = default
+password = ceiec2019
+
+
+[openlookeng]
+host = 	10.111.201.1
+port = 8090
+user = olk
+catalog = clickhouselt
 schema = tsg_galaxy_v3
 
 

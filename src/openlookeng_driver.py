@@ -97,7 +97,7 @@ class WebResult:
 
     # 尝试获取结果
     def __get_result_immediately(self):
-        # 返回当前执行的状态
+        # 返回当前执行的状态 
         result = self.client.get_query(self.uuid)
         if result is not None:
             #print(result)
@@ -112,6 +112,7 @@ class WebResult:
                 self.error_info = result['error']['message']
                 self.write_log('error',"SQL : "+self.sql)
                 self.write_log('error',result['error']['message'])
+                raise Exception("State Failed: {}".format(self.error_info))
             else:
                 return None
         return result
@@ -122,6 +123,8 @@ class WebResult:
             return self.result
         if timeout is None:
             timeout = 5
+        else:
+            timeout = int(timeout)
         use_time = 0
         interval = 0.5
         while True:
@@ -134,13 +137,12 @@ class WebResult:
             use_time += interval
             time.sleep(interval)
             interval = math.ceil(use_time/10)
-        return None
+        raise Exception("Timeout {} > {}".format(use_time,timeout))
 
     def get_used_time(self,timeout = None):
         self.get_result(timeout)
         if self.used_time is None:
             return 0
-        #print(self.used_time)
         if "ms" in self.used_time:
             return float(re.sub("ms","",self.used_time))/1000
         elif "s" in self.used_time:
@@ -175,12 +177,13 @@ class WebResult:
         if csv_path is not None:
             if csv_name is None:
                 csv_name = csv_path.split('/')[-1]
-                print("csv_name:",csv_name)
             response = requests.get(csv_path)
             if response.status_code == 200:
                 content = response.content
                 with open(csv_name,'w') as file:
                     file.write(content)
+        else:
+            raise Exception("Download Error")
                         
 def print_csv(csv_path):
     response = requests.get(csv_path)
@@ -194,10 +197,9 @@ def print_csv(csv_path):
                 print_seperator = False
                 length = len(line)
                 print("-"*length)
-        
     else:
-        print("Error -->",response.status_code)
-
+        raise Exception("error: status code: {}".format(response.status_code))
+    
 class Client:
     def __init__(self,host="127.0.0.1",port=8080,user="lk",catalog="system",schema="runtime",timeout = 10000):
         self.host = host
@@ -298,7 +300,7 @@ class Client:
         return None
 
 if __name__ == "__main__":
-    client = Client(host='192.168.40.152',port=18080,user='lk',catalog='clickhouse152',schema='ssb')
+    client = Client(host='192.168.40.152',port=18080,user='lk',catalog='clickhouse223',schema='tsg_galaxy_v3')
     client.add_logging(log_level=logging.DEBUG)
 
     #result = client.web_execute("SELECT sum(LO_REVENUE),  year(LO_ORDERDATE) AS year,  P_BRAND  FROM lineorder_flat  WHERE P_CATEGORY = 'MFGR#12' AND S_REGION = 'AMERICA'  GROUP BY  year(LO_ORDERDATE),  P_BRAND  ORDER BY  year(LO_ORDERDATE),  P_BRAND LIMIT 3")

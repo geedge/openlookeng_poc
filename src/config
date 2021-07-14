@@ -12,7 +12,6 @@ user = olk
 catalog = clickhouse223
 schema = tsg_galaxy_v3
 
-
 [clickhouse]
 host = 10.111.200.170
 port = 9001
@@ -27,8 +26,10 @@ user = olk
 catalog = clickhouselt
 schema = tsg_galaxy_v3
 
-
 [run]
 time1 = 2021-05-30 12:00:00
 time2 = 2021-06-30 12:00:00
-time_out = 1200
+time_out = 900  
+
+[optional]
+list_without_datetime = 1

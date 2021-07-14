@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 import clickhouse_driver
 import openlookeng_driver
-import json,time,logging,sys
+import json,time,logging,sys,os
 import configparser
+from sql_filter import *
 olconfig = {}
 chconfig = {}
 
 time1,time2 = '',''
 sql_timeout = 2000
-def change_sql(origin_sql):
+run_loc = './'
+datetime_flag = 0
+def change_sql(mode,origin_sql):
     changed_sql = origin_sql.replace("$time1","'" + time1 + "'").replace("$time2","'" + time2 + "'")
     return changed_sql
 
@@ -27,9 +30,10 @@ def run_ch(test_sql,now_time = '2021'):
     results = {}
     total_time = 0
     suc_num,fail_num = 0,0
+    client.execute("use tsg_galaxy_v3")
     for k,v in test_sql.items():
         result = {}
-        run_sql = change_sql(v)
+        run_sql = change_sql('ch',v)
         result['sql'] = run_sql
         try:
             used_time = execute_sql(client,run_sql)
@@ -40,23 +44,23 @@ def run_ch(test_sql,now_time = '2021'):
             result['data_num'] = 0
             result['info'] = ''
             suc_num += 1
-            print("running Q{} success , {}√，{}×".format(k,suc_num,fail_num))
+            print("running {} success , {}√，{}×".format(k,suc_num,fail_num))
         except Exception as e:
             result['used_time'] = -1
             result['data_num'] = -1
             result['info'] = str(e)
             fail_num += 1
-            print("running Q{} failed , {}√，{}×".format(k,suc_num,fail_num))
+            print("running {} failed  , {}√，{}×  {}".format(k,suc_num,fail_num,result['info'].replace('\n','')[:40]))
 
         results[k] = result
         try:
-            with open("../log/ch-"+now_time + ".json",'w') as file:
+            with open(run_loc + "../log/ch-"+now_time + ".json",'w') as file:
                 file.write(json.dumps(results))
         except Exception as e:
             print("error",e)
         try:
-            file = open("../log/ch-result.log","a+")
-            file.write("{} success num: {}  failed num: {} \n".format(now_time,suc_num,fail_num))
+            file = open(run_loc + "../log/ch-result.log","a+")
+            file.write("{} {} success num: {}  failed num: {} \n".format(k,now_time,suc_num,fail_num))
             file.close()
         except Exception as e:
             print(e)
@@ -70,70 +74,89 @@ def run_olk(test_sql,now_time = '2021'):
     results = {}
     total_time = 0
     suc_num,fail_num = 0,0
+    os.mkdir(run_loc + "../log/" + now_time)
     for k,v in test_sql.items():
         result = {}
-        run_sql = change_sql(v)
+        run_sql = change_sql('ol',v)
         result['sql'] = run_sql
         try:
             web_result = client.web_execute(run_sql)
             used_time = float(web_result.get_used_time(sql_timeout))  # second
-            web_result.download_csv("../log/"+str(k)+".csv")
+            #web_result.download_csv(run_loc + "../log/" + now_time + "/" + str(k)+".csv")
+            web_result.download_csv("{}../log/{}/{}.csv".format(run_loc,now_time,str(k)))
             total_time += used_time
             result['used_time'] = used_time
             result['data_num'] = 0
             suc_num += 1
-            print("running Q{} success , {}√，{}×".format(k,suc_num,fail_num))
+            print("running {} success , {}√，{}×".format(k,suc_num,fail_num))
         except Exception as e:
             result['used_time'] = -1
             result['data_num'] = 0
             result['info'] = str(e)
             fail_num += 1
-            print("running Q{} failed , {}√，{}×".format(k,suc_num,fail_num))
+            print("running {} failed  , {}√，{}× {}".format(k,suc_num,fail_num,result['info'].replace('\n','')[:40]))
         results[k] = result
         try:
-            file = open("../log/ol-" + now_time + ".json",'w')
+            file = open(run_loc + "../log/ol-" + now_time + ".json",'w')
             file.write(json.dumps(results))
             file.close()
         except Exception as e:
             print("error",e)
         try:
-            with open("../log/ol-result.log","a+") as file:
-                file.write("{} success num: {}  failed num: {} \n".format(now_time,suc_num,fail_num))
+            with open(run_loc + "../log/ol-result.log","a+") as file:
+                file.write("{} {} success num: {}  failed num: {} \n".format(k,now_time,suc_num,fail_num))
         except Exception as e:
             print(e)
     time.sleep(10)
 
 def ch_poc():
-    with open("poc-ch.json",'r') as file:
+    with open(run_loc + "poc-ch.json",'r') as file:
         now_time = get_current_time()
         poc = json.loads(file.read())
+        # temp solve datetime error issue
+        if (datetime_flag):
+            poc = test_exclude_toDateTime('ch',poc)
         run_ch(poc,now_time)
 
 def ol_poc():
-    with open("auto-ol.json",'r') as file:
+    with open(run_loc + "auto-ol.json",'r') as file:
         now_time = get_current_time()
         poc = json.loads(file.read())
+        if (datetime_flag):
+            poc = test_exclude_toDateTime('ol',poc)
         run_olk(poc,now_time)
 
 
 def read_conf():
-    global time1,time2,sql_timeout,olconfig,chconfig
+    global time1,time2,sql_timeout,olconfig,chconfig,run_loc,datetime_flag
+    # 指定根目录
+    if (len(sys.argv) == 3):
+        run_loc = sys.argv[2] + "/src/"
     config = configparser.ConfigParser()
-    config.read("config")
+    config.read(run_loc + "config")
+
     time1 = config.get("run","time1")
     time2 = config.get("run","time2")
-    sql_timeout = config.get("run","time_out")
-    chconfig['host'] = config.get("clickhouse","host")
-    chconfig['port'] = config.get("clickhouse","port")
-    chconfig['user'] = config.get("clickhouse","user")
-    chconfig['password'] = config.get("clickhouse","password")
+    
+    sql_timeout = config.get("run","time_out") # default 900s 15min
 
-    olconfig['host'] = config.get("openlookeng","host")
-    olconfig['port'] = config.get("openlookeng","port")
-    olconfig['user'] = config.get("openlookeng","user")
-    olconfig['catalog'] = config.get("openlookeng","catalog")
-    olconfig['schema'] = config.get("openlookeng","schema")
+    ch_sector = "clickhouse"
+    ol_sector = "openlookeng"
 
+    chconfig['host'] = config.get(ch_sector,"host")
+    chconfig['port'] = str(config.get(ch_sector,"port"))
+    chconfig['user'] = config.get(ch_sector,"user")
+    chconfig['password'] = str(config.get(ch_sector,"password"))
+
+    olconfig['host'] = config.get(ol_sector,"host")
+    olconfig['port'] = str(config.get(ol_sector,"port"))
+    olconfig['user'] = config.get(ol_sector,"user")
+    olconfig['catalog'] = config.get(ol_sector,"catalog")
+    olconfig['schema'] = config.get(ol_sector,"schema")
+    datetime_flag = config.get("optional","list_without_datetime")
+
+def check_connect():
+    pass
 
 if __name__ == "__main__":
     read_conf()

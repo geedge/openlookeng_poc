@@ -177,13 +177,15 @@ class WebResult:
         if csv_path is not None:
             if csv_name is None:
                 csv_name = csv_path.split('/')[-1]
-            response = requests.get(csv_path)
+            response = requests.get(csv_path,headers = self.client.headers)
             if response.status_code == 200:
                 content = response.content
-                with open(csv_name,'w') as file:
+                with open(csv_name,'wb') as file:
                     file.write(content)
+            else:
+                raise Exception("Download Error:status code: {}".format(response.status_code))
         else:
-            raise Exception("Download Error")
+            raise Exception("Download Error:csv_path none")
                         
 def print_csv(csv_path):
     response = requests.get(csv_path)
@@ -248,13 +250,16 @@ class Client:
         logger.info("connect to {}:{} user:{} catalog:{} schema:{}".format(self.host,self.port,self.user,self.catalog,self.schema))
         self.logger  = logger
 
-    def execute(self,sql):
+    def __execute(self,sql):
         sql = sql.split(';')[0]
         response = requests.post(self.execute_url,data = sql,headers = self.headers)
         if response.ok:
             return Result(json.loads(response.text)['nextUri'])
         else:
             return response.text
+
+    def execute(self,sql):
+        return self.web_execute(self,sql)
         
     def web_execute(self,sql):
         if ';' in sql:
@@ -303,8 +308,4 @@ if __name__ == "__main__":
     client = Client(host='192.168.40.152',port=18080,user='lk',catalog='clickhouse223',schema='tsg_galaxy_v3')
     client.add_logging(log_level=logging.DEBUG)
 
-    #result = client.web_execute("SELECT sum(LO_REVENUE),  year(LO_ORDERDATE) AS year,  P_BRAND  FROM lineorder_flat  WHERE P_CATEGORY = 'MFGR#12' AND S_REGION = 'AMERICA'  GROUP BY  year(LO_ORDERDATE),  P_BRAND  ORDER BY  year(LO_ORDERDATE),  P_BRAND LIMIT 3")
-    #result.get_output()
-    # web_ress = client.web_executes("select 1,2,3,4;select1")
-    # for w in web_ress:
-    #     w.get_output()
+

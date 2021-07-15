@@ -2,7 +2,7 @@
 #!/bin/bash
 systeminfologfile="./log/systeminfo.log"
 runtimelogfile="./log/runtime.log"
-
+#alias python="docker run -it --rm poc_jph python"
 collect_info(){
     echo co
     echo "--------" >> $systeminfologfile
@@ -20,6 +20,7 @@ collect_info(){
 }
 
 collect_use_info(){
+    echo 1 > /proc/sys/vm/drop_caches 
     echo "--------" >> $runtimelogfile
     echo "MEM USE" >> $runtimelogfile
     echo "--------" >> $runtimelogfile
@@ -31,17 +32,32 @@ collect_use_info(){
 }
 
 ch_test(){
-    echo 1 > /proc/sys/vm/drop_caches
     collect_use_info
     echo "running ClickHouse test"
     python ./src/run.py ch $(pwd)
 }
 
 ol_test(){
-    echo 1 > /proc/sys/vm/drop_caches
     collect_use_info
     echo "running OpenLookeng test"
     python ./src/run.py ol $(pwd)
+}
+
+ch_test_docker(){
+    collect_use_info
+    echo "running ClickHouse test" 
+    docker exec -it poc python ./src/run.py ch /usr/src/app/
+    echo 1
+    #docker run --rm -v $(pwd):/usr/src/app --name poc poc_jph:latest python ./src/run.py ch /usr/src/app/
+
+}
+
+ol_test_docker(){
+    collect_use_info
+    echo "running OpenLookeng test" 
+    docker exec -it poc python ./src/run.py ol /usr/src/app/
+    echo 1
+    #docker run --rm -v $(pwd):/usr/src/app --name poc poc_jph:latest ./src/run.py ol /usr/src/app/
 }
 
 clear_log() {
@@ -61,4 +77,29 @@ start() {
     tar -zcvf log.tgz ./log
 }
 
-start
+docker_start() {
+    docker-compose up -d
+    clear_log
+    collect_info
+    for i in {1,2,3}
+    do
+        ch_test_docker
+        ol_test_docker
+    done
+    tar -zcvf log.tgz ./log
+    docker-compose down
+    echo "finish poc test"
+}
+
+docker_export() {
+    docker save -o ./poc.tar poc_jph:latest
+}
+
+temp_test() {
+    docker-compose up -d
+    docker exec -it poc python ./src/run.py ch /usr/src/app/
+    docker exec -it poc python ./src/run.py ol /usr/src/app/
+    docker-compose down
+}
+#temp_test
+docker_start

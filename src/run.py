@@ -140,8 +140,8 @@ def read_conf():
     
     sql_timeout = config.get("run","time_out") # default 900s 15min
 
-    ch_sector = "clickhouse"
-    ol_sector = "openlookeng"
+    ch_sector = "clickhouse-local"
+    ol_sector = "openlookeng-local"
 
     chconfig['host'] = config.get(ch_sector,"host")
     chconfig['port'] = str(config.get(ch_sector,"port"))

@@ -1,3 +1,4 @@
 *.log
 *.tgz
 __pycache__
+*.tar

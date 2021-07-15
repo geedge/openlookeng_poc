@@ -49,5 +49,4 @@ pip install ./whl/requests_toolbelt-0.9.1-py2.py3-none-any.whl
 
 ## Todo
 
-- csv文件下载失败
 - 结果的行数统计

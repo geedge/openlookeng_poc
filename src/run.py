@@ -2,7 +2,7 @@
 import clickhouse_driver
 import openlookeng_driver
 import json,time,logging,sys,os
-import configparser
+import configparser,shutil
 from sql_filter import *
 olconfig = {}
 chconfig = {}
@@ -21,6 +21,16 @@ def execute_sql(client,sql):
     ans = client.execute(sql)
     end = time.time()
     return end-start
+
+def wc_l(filename):
+    try:
+        with open(filename,"r") as file:
+            content = file.readlines()
+        os.remove(filename)
+        return len(content)
+    except Exception as e:
+        return 0
+
     
 def get_current_time():
     return time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
@@ -82,32 +92,66 @@ def run_olk(test_sql,now_time = '2021'):
         try:
             web_result = client.web_execute(run_sql)
             used_time = float(web_result.get_used_time(sql_timeout))  # second
-            #web_result.download_csv(run_loc + "../log/" + now_time + "/" + str(k)+".csv")
             web_result.download_csv("{}../log/{}/{}.csv".format(run_loc,now_time,str(k)))
             total_time += used_time
             result['used_time'] = used_time
-            result['data_num'] = 0
+            result['data_num'] = wc_l("{}../log/{}/{}.csv".format(run_loc,now_time,str(k)))
             suc_num += 1
             print("running {} success , {}√，{}×".format(k,suc_num,fail_num))
         except Exception as e:
             result['used_time'] = -1
-            result['data_num'] = 0
+            result['data_num'] = -1
             result['info'] = str(e)
             fail_num += 1
             print("running {} failed  , {}√，{}× {}".format(k,suc_num,fail_num,result['info'].replace('\n','')[:40]))
         results[k] = result
         try:
-            file = open(run_loc + "../log/ol-" + now_time + ".json",'w')
-            file.write(json.dumps(results))
-            file.close()
-        except Exception as e:
-            print("error",e)
-        try:
+            with open(run_loc + "../log/ol-" + now_time + ".json",'w') as file:
+                file.write(json.dumps(results))
             with open(run_loc + "../log/ol-result.log","a+") as file:
                 file.write("{} {} success num: {}  failed num: {} \n".format(k,now_time,suc_num,fail_num))
         except Exception as e:
             print(e)
+    path = "{}../log/{}".format(run_loc,now_time)
+    if os.path.exists(path):
+        shutil.rmtree(path)
     time.sleep(10)
+
+def run_explain(test_sql,now_time = '2021'):
+    client = openlookeng_driver.Client(host=olconfig['host'],port=int(olconfig['port']),user=olconfig['user'],catalog=olconfig['catalog'],schema=olconfig['schema'])
+    results = {}
+    total_time = 0
+    suc_num,fail_num = 0,0
+    os.mkdir(run_loc + "../log/" + now_time)
+    for k,v in test_sql.items():
+        result = {}
+        ## add explain
+        run_sql = "explain " + change_sql('ol',v)
+        result['sql'] = run_sql
+        try:
+            web_result = client.web_execute(run_sql)
+            used_time = float(web_result.get_used_time(sql_timeout))  # second
+            web_result.download_csv("{}../log/{}/{}.csv".format(run_loc,now_time,str(k)))
+            total_time += used_time
+            result['used_time'] = used_time
+            suc_num += 1
+            print("running explain {} success , {}√，{}×".format(k,suc_num,fail_num))
+        except Exception as e:
+            result['used_time'] = -1
+            result['data_num'] = -1
+            result['info'] = str(e)
+            fail_num += 1
+            print("running explain {} failed  , {}√，{}× {}".format(k,suc_num,fail_num,result['info'].replace('\n','')[:40]))
+        results[k] = result
+        try:
+            with open(run_loc + "../log/explain-" + now_time + ".json",'w') as file:
+                file.write(json.dumps(results))
+            with open(run_loc + "../log/explain-result.log","a+") as file:
+                file.write("{} {} success num: {}  failed num: {} \n".format(k,now_time,suc_num,fail_num))
+        except Exception as e:
+            print(e)
+    time.sleep(10)
+
 
 def ch_poc():
     with open(run_loc + "poc-ch.json",'r') as file:
@@ -115,16 +159,24 @@ def ch_poc():
         poc = json.loads(file.read())
         # temp solve datetime error issue
         if (datetime_flag):
-            poc = test_exclude_toDateTime('ch',poc)
+            poc = no_exclude('ch',poc)
         run_ch(poc,now_time)
 
 def ol_poc():
-    with open(run_loc + "auto-ol.json",'r') as file:
+    with open(run_loc + "ckdb-ol.json",'r') as file:
         now_time = get_current_time()
         poc = json.loads(file.read())
         if (datetime_flag):
-            poc = test_exclude_toDateTime('ol',poc)
+            poc = no_exclude('ol',poc)
         run_olk(poc,now_time)
+
+def explain_poc():
+    with open(run_loc + "ckdb-ol.json",'r') as file:
+        now_time = get_current_time()
+        poc = json.loads(file.read())
+        if (datetime_flag):
+            poc = no_exclude('e',poc)
+        run_explain(poc,now_time)
 
 
 def read_conf():
@@ -140,8 +192,8 @@ def read_conf():
     
     sql_timeout = config.get("run","time_out") # default 900s 15min
 
-    ch_sector = "clickhouse-local"
-    ol_sector = "openlookeng-local"
+    ch_sector = "clickhouse"
+    ol_sector = "openlookeng"
 
     chconfig['host'] = config.get(ch_sector,"host")
     chconfig['port'] = str(config.get(ch_sector,"port"))
@@ -163,10 +215,14 @@ if __name__ == "__main__":
     if sys.argv[1] == 'ch':
         print("run ch")
         ch_poc()
-    else:
+    elif sys.argv[1] == 'ol':
         print("run ol")
         ol_poc()
-    
+    elif sys.argv[1] == 'explain':
+        print("run explain")
+        explain_poc()
+    else:
+        print("error")
 
     
         

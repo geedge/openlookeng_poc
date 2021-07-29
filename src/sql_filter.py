@@ -13,6 +13,17 @@ def exclude_toDateTime(mode,sql):
     return sql
 
 
+
+def explain_test(sql1):
+    run_keys = ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10']
+    sql = {}
+    for key in run_keys:
+        sql[key] = sql1[key]
+    return sql
+
+
+def no_exclude(mode,sql1):
+    return sql1
 def test_exclude_toDateTime(mode,sql1):
     run_keys = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 
                 'Q7', 'Q8', 'Q9', 'Q10', 'Q11', 'Q12', 'Q13', 

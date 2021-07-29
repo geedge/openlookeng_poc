@@ -47,7 +47,6 @@ ch_test_docker(){
     collect_use_info
     echo "running ClickHouse test" 
     docker exec -it poc python ./src/run.py ch /usr/src/app/
-    echo 1
     #docker run --rm -v $(pwd):/usr/src/app --name poc poc_jph:latest python ./src/run.py ch /usr/src/app/
 
 }
@@ -56,8 +55,12 @@ ol_test_docker(){
     collect_use_info
     echo "running OpenLookeng test" 
     docker exec -it poc python ./src/run.py ol /usr/src/app/
-    echo 1
     #docker run --rm -v $(pwd):/usr/src/app --name poc poc_jph:latest ./src/run.py ol /usr/src/app/
+}
+
+ol_expain_docker(){
+    echo "running Explaining test" 
+    docker exec -it poc python ./src/run.py explain /usr/src/app/
 }
 
 clear_log() {
@@ -70,7 +73,7 @@ start() {
     collect_info
     for i in {1,2,3}
     do
-        ch_test
+        #ch_test
         ol_test
     done
     echo "finish poc test"
@@ -86,6 +89,7 @@ docker_start() {
         ch_test_docker
         ol_test_docker
     done
+    ol_expain_docker
     tar -zcvf log.tgz ./log
     docker-compose down
     echo "finish poc test"
@@ -101,5 +105,16 @@ temp_test() {
     docker exec -it poc python ./src/run.py ol /usr/src/app/
     docker-compose down
 }
-#temp_test
+
+
+explain_start() {
+    docker-compose up -d
+    clear_log
+    collect_info
+    ol_expain_docker
+    tar -zcvf log.tgz ./log
+    docker-compose down
+    echo FINISH
+}
+
 docker_start

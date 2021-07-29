@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import requests,json,time,math,re,logging
+from datetime import datetime
 from requests_toolbelt import MultipartEncoder
 
 class Result:
@@ -125,19 +126,21 @@ class WebResult:
             timeout = 5
         else:
             timeout = int(timeout)
-        use_time = 0
+        elapsed = 0
+        started_at = datetime.now()
         interval = 0.5
         while True:
             result = self.__get_result_immediately()
             if result is not None:
                 self.result = result
                 return result
-            if use_time > timeout:
+            if elapsed > timeout:
                 break
-            use_time += interval
+            now = datetime.now()
+            elapsed = (now - started_at).total_seconds()
             time.sleep(interval)
-            interval = math.ceil(use_time/10)
-        raise Exception("Timeout {} > {}".format(use_time,timeout))
+            interval = math.ceil(elapsed/10)
+        raise Exception("Timeout {} > {}".format(elapsed,timeout))
 
     def get_used_time(self,timeout = None):
         self.get_result(timeout)
